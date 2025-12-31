@@ -1,0 +1,740 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Live TV Player</title>
+
+    <!-- HLS -->
+    <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: Arial, sans-serif;
+        }
+
+        body {
+            background: #0f172a;
+            color: white;
+            height: 100vh;
+        }
+
+        /* Top section */
+        .header {
+            text-align: center;
+            padding: 15px;
+        }
+
+        .header h1 {
+            margin-bottom: 10px;
+        }
+
+        .search-box {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            flex-wrap: wrap;
+            position: relative; /* anchor suggestions below the input */
+        }
+
+        .search-suggestions {
+            position: absolute;
+            top: calc(100% + 8px); /* place just below the search box */
+            left: 50%;
+            transform: translateX(-50%);
+            width: 280px; /* match input width closely */
+            max-height: 260px;
+            overflow:auto;
+            background: #071028;
+            border-radius: 6px;
+            box-shadow: 0 8px 20px rgba(2,6,23,0.6);
+            z-index: 70;
+            padding: 6px;
+        }
+
+        .suggestion-item {
+            padding: 8px 10px;
+            border-radius: 6px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: #e6eef8;
+        }
+
+        .suggestion-item:hover {
+            background: rgba(255,255,255,0.03);
+        }
+
+        .suggestion-item img { width:28px; height:20px; object-fit:contain; border-radius:3px }
+
+        .search-box input {
+            padding: 10px;
+            width: 250px;
+            border-radius: 5px;
+            border: none;
+        }
+
+        .search-box button {
+            padding: 10px 15px;
+            border-radius: 5px;
+            border: none;
+            cursor: pointer;
+            background: #22c55e;
+            font-weight: bold;
+        }
+
+        /* Main layout */
+        .container {
+            display: flex;
+            height: calc(100vh - 120px);
+        }
+
+        /* Channel list */
+        .channels {
+            width: 35%;
+            padding: 10px;
+            position: relative; /* make pagination absolutely positioned inside */
+            display: flex;
+            flex-direction: column;
+            padding-bottom: 72px; /* leave space for fixed pagination */
+        }
+
+        .controls-row {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 8px;
+            position: relative;
+        }
+
+        .ctrl-btn {
+            flex: 1 1 auto;
+            padding: 8px 10px;
+            background: rgba(255,255,255,0.04);
+            color: #fff;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+        }
+
+        .channel-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr); /* 3 columns (3 across) */
+            grid-template-rows: repeat(4, 1fr); /* 4 rows -> 12 cards */
+            gap: 10px;
+            flex: 1 1 auto; /* take remaining vertical space inside .channels */
+            min-height: 0; /* ensure proper flex child behavior */
+        }
+
+        .channel-card {
+            background: #1e293b;
+            padding: 8px 10px;
+            text-align: center;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            justify-content: flex-start;
+            gap: 8px;
+            overflow: hidden;
+            min-height: 0;
+        }
+
+        .channel-card:hover {
+            background: #334155;
+        }
+
+        .channel-card .channel-name {
+            display: block;
+            flex: 1 1 auto;
+            min-width: 0; /* allow flexbox to shrink before overflowing */
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .channel-card .channel-logo {
+            width: 40px; /* smaller, clearer logo */
+            height: 28px;
+            flex: 0 0 40px;
+            border-radius: 4px;
+            object-fit: contain; /* show whole logo without cropping */
+            background: transparent; /* no placeholder background */
+            padding: 0;
+        }
+
+        /* Player */
+        .player {
+            width: 65%;
+            padding: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative; /* allow overlay inside player */
+        }
+
+        video {
+            width: 100%;
+            height: 100%;
+            max-height: 100%;
+            border-radius: 10px;
+            background: black;
+        }
+
+        /* Pagination */
+        .pagination {
+            position: absolute;
+            left: 0;
+            right: 0;
+            bottom: 12px;
+            text-align: center;
+            pointer-events: auto;
+        }
+
+        .pagination button {
+            padding: 8px 12px;
+            margin: 0 6px;
+            cursor: pointer;
+            border-radius: 6px;
+            border: none;
+            background: rgba(255,255,255,0.06);
+            color: #fff;
+        }
+
+        /* Responsive */
+        @media (max-width: 900px) {
+            .container {
+                flex-direction: column;
+            }
+            .channels, .player {
+                width: 100%;
+                height: 50%;
+            }
+            .channel-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+
+            /* On small screens, let pagination flow below the grid */
+            .channels {
+                position: static;
+            }
+            .channel-grid {
+                padding-bottom: 0;
+            }
+            .pagination {
+                position: static;
+                margin-top: 10px;
+            }
+        }
+
+        @media (max-width: 500px) {
+            .channel-grid {
+                grid-template-columns: repeat(1, 1fr);
+            }
+        }
+    </style>
+</head>
+<body>
+
+<!-- HEADER -->
+<div class="header">
+    <h1>📺 Live TV Player</h1>
+    <div class="search-box">
+        <input type="text" id="searchInput" placeholder="Search channel">
+        <button onclick="searchAndPlay()">Play</button>
+        <div id="searchSuggestions" class="search-suggestions" style="display:none;"></div>
+    </div>
+</div>
+
+<!-- MAIN CONTENT -->
+<div class="container">
+
+    <!-- LEFT CHANNEL LIST -->
+    <div class="channels">
+        <div class="controls-row">
+            <button class="ctrl-btn" onclick="toggleMenu()">Menu ▾</button>
+            <div id="menuPopup" style="display:none;position:absolute;left:0;right:0;top:40px;background:#0b1220;border-radius:6px;padding:6px;box-shadow:0 6px 18px rgba(0,0,0,0.6);z-index:60;">
+                <button class="ctrl-btn" style="display:block;width:100%;margin-bottom:6px;" onclick="openCategoryModal();toggleMenu(false)">Category</button>
+            </div>
+        </div>
+
+        <div id="channelGrid" class="channel-grid"></div>
+
+        <div class="pagination">
+            <button id="backBtn" style="display:none;margin-right:6px;" onclick="goBackFromFilter()">Back</button>
+            <button onclick="prevPage()">Prev</button>
+            <button onclick="nextPage()">Next</button>
+        </div>
+
+        
+        <!-- Category modal (positioned inside left panel) -->
+        <div id="categoryModal" style="display:none; position:absolute; top:48px; left:10px; right:10px; z-index:40;">
+            <div style="background:#0b1220;color:#fff;width:100%;padding:10px;border-radius:8px; max-height: calc(100% - 80px); overflow:auto;">
+                <div style="font-weight:700;margin-bottom:8px">Categories</div>
+                <div id="categoryList" style="max-height:360px;overflow:auto;padding:6px;border-radius:6px;background:rgba(255,255,255,0.02)"></div>
+                <div style="margin-top:8px;display:flex;gap:6px;justify-content:flex-end"><button onclick="clearCategory()" class="ctrl-btn">Clear</button><button onclick="closeCategoryModal()" class="ctrl-btn">Close</button></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- RIGHT PLAYER -->
+    <div class="player">
+        <video id="video" controls autoplay playsinline webkit-playsinline></video>
+        <div id="qualityControl" style="display:none;position:absolute;top:12px;right:12px;z-index:90;">
+            <select id="qualitySelect" style="background:rgba(0,0,0,0.6);color:#fff;padding:6px;border-radius:6px;border:none;font-weight:600;"></select>
+        </div>
+
+        <!-- Overlay shown when playback fails after timeout -->
+        <div id="subscriptionOverlay" style="display:none;position:absolute;top:0;left:0;right:0;bottom:0;z-index:80;align-items:center;justify-content:center;display:flex;pointer-events:auto;">
+            <div style="background:rgba(11,18,32,0.96);color:#fff;padding:18px 22px;border-radius:10px;text-align:center;max-width:360px;box-shadow:0 8px 30px rgba(2,6,23,0.6);">
+                <div style="font-size:20px;font-weight:700;margin-bottom:8px">Subscription Required</div>
+                <div style="opacity:0.85;margin-bottom:12px">This channel requires an active subscription to view.</div>
+                <div style="display:flex;gap:8px;justify-content:center">
+                    <button onclick="subscribeNow()" class="ctrl-btn">Click here to subscribe</button>
+                    <button onclick="dismissOverlay()" class="ctrl-btn">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<script>
+    let channels = [];
+    let allChannels = [];
+    let currentPage = 0;
+    let pageSize = 12; // show 12 cards per page (3x4)
+    let activeCategory = null; // {top, sub} when filtering is active
+    let hls;
+    let playbackTimeout = null;
+    const PLAYBACK_WAIT_MS = 9000; // try for ~9 seconds before showing subscription overlay
+
+    // Load all channels
+    fetch("/channels")
+        .then(res => res.json())
+        .then(data => {
+            allChannels = data || [];
+            channels = allChannels.slice();
+            renderChannels();
+        });
+
+    function renderChannels() {
+        let grid = document.getElementById("channelGrid");
+        grid.innerHTML = "";
+
+        let start = currentPage * pageSize;
+        let end = start + pageSize;
+
+        channels.slice(start, end).forEach(ch => {
+            let div = document.createElement("div");
+            div.className = "channel-card";
+
+            // Trim any trailing bracketed metadata like (..), [...], {...}
+            // e.g. "AC TV (480) [Not 24*7]" -> "AC TV"
+            let displayName = ch.name.trim();
+            // remove repeated trailing bracketed groups
+            while (/\s*[\(\[\{].*?[\)\]\}]\s*$/.test(displayName)) {
+                displayName = displayName.replace(/\s*[\(\[\{].*?[\)\]\}]\s*$/, '');
+            }
+            displayName = displayName.trim();
+
+            // logo (if provided)
+            if (ch.logo) {
+                let img = document.createElement('img');
+                img.className = 'channel-logo';
+                img.src = ch.logo;
+                img.alt = displayName;
+                // hide broken images
+                img.onerror = function() { this.style.display = 'none'; };
+                div.appendChild(img);
+            }
+
+            let span = document.createElement('span');
+            span.className = 'channel-name';
+            span.textContent = displayName;
+            // keep full name in title for tooltip
+            span.title = ch.name;
+
+            div.appendChild(span);
+            div.onclick = () => playChannel(ch.name);
+            grid.appendChild(div);
+        });
+    }
+
+    function playChannel(name) {
+        fetch("/channels/play?name=" + encodeURIComponent(name))
+            .then(res => res.json())
+            .then(data => {
+                if (!data.streamUrl) {
+                    alert("Channel not found");
+                    return;
+                }
+
+                let video = document.getElementById("video");
+
+                // cleanup previous attempts
+                clearPlaybackTimeout();
+                hideSubscriptionOverlay();
+                if (hls) { try { hls.destroy(); } catch (e) {} hls = null; }
+
+                // helper to mark success
+                const onPlayable = () => {
+                    clearPlaybackTimeout();
+                    hideSubscriptionOverlay();
+                    video.removeEventListener('playing', onPlayable);
+                    video.removeEventListener('canplay', onPlayable);
+                    video.removeEventListener('loadedmetadata', onPlayable);
+                };
+
+                video.addEventListener('playing', onPlayable);
+                video.addEventListener('canplay', onPlayable);
+                video.addEventListener('loadedmetadata', onPlayable);
+
+                // start timeout: if not playing within PLAYBACK_WAIT_MS, show overlay
+                playbackTimeout = setTimeout(() => {
+                    // if video is not actually playing/ready, show subscription required
+                    const isReady = (video.readyState > 2 && !video.paused && !video.ended && video.currentTime > 0);
+                    if (!isReady) {
+                        showSubscriptionOverlay();
+                    }
+                    video.removeEventListener('playing', onPlayable);
+                    video.removeEventListener('canplay', onPlayable);
+                    video.removeEventListener('loadedmetadata', onPlayable);
+                }, PLAYBACK_WAIT_MS);
+
+                if (video.canPlayType('application/vnd.apple.mpegurl')) {
+                    video.src = data.streamUrl;
+                    const p = video.play(); if (p && p.catch) p.catch(()=>{});
+                } else if (Hls.isSupported()) {
+                    // configure Hls.js and provide a quality selector so user can lock 1080p when available
+                    hls = new Hls({ capLevelToPlayerSize: false, maxBufferLength: 60 });
+                    hls.loadSource(data.streamUrl);
+                    hls.attachMedia(video);
+
+                    // populate quality selector after manifest parsed
+                    hls.on(Hls.Events.MANIFEST_PARSED, function() {
+                        try {
+                            const levels = hls.levels || [];
+                            const selector = document.getElementById('qualitySelect');
+                            const control = document.getElementById('qualityControl');
+                            if (selector && control) {
+                                selector.innerHTML = '';
+                                const autoOpt = document.createElement('option');
+                                autoOpt.value = 'auto';
+                                autoOpt.text = 'Auto';
+                                selector.appendChild(autoOpt);
+
+                                levels.forEach((lvl, idx) => {
+                                    const h = lvl.height || 0;
+                                    const bw = lvl.bitrate ? Math.round(lvl.bitrate/1000) + 'kbps' : '';
+                                    const label = h ? (h + 'p') : bw || ('level ' + idx);
+                                    const opt = document.createElement('option');
+                                    opt.value = idx;
+                                    opt.text = label + (lvl.width ? (' (' + lvl.width + 'x' + h + ')') : '');
+                                    selector.appendChild(opt);
+                                });
+
+                                // default: try highest available level and lock it
+                                if (levels.length > 0) {
+                                    const highest = levels.length - 1;
+                                    selector.value = highest;
+                                    hls.autoLevelEnabled = false;
+                                    hls.currentLevel = highest;
+                                    hls.nextLevel = highest;
+                                } else {
+                                    selector.value = 'auto';
+                                    hls.autoLevelEnabled = true;
+                                }
+
+                                // when user changes selection, toggle ABR or lock to chosen level
+                                selector.onchange = function() {
+                                    if (this.value === 'auto') {
+                                        hls.autoLevelEnabled = true;
+                                        hls.currentLevel = -1;
+                                        hls.nextLevel = -1;
+                                    } else {
+                                        const idx = parseInt(this.value, 10);
+                                        hls.autoLevelEnabled = false;
+                                        hls.currentLevel = idx;
+                                        hls.nextLevel = idx;
+                                    }
+                                };
+
+                                control.style.display = 'block';
+                            }
+                        } catch (e) {}
+                        video.play().catch(()=>{});
+                    });
+
+                    hls.on(Hls.Events.ERROR, function(event, dataEvent) {
+                        // if fatal error, allow timeout to show overlay (or show immediately for fatal network errors)
+                        if (dataEvent && dataEvent.fatal) {
+                            clearPlaybackTimeout();
+                            showSubscriptionOverlay();
+                        }
+                    });
+                }
+            });
+    }
+
+    function clearPlaybackTimeout() {
+        if (playbackTimeout) { clearTimeout(playbackTimeout); playbackTimeout = null; }
+    }
+
+    function showSubscriptionOverlay() {
+        const ov = document.getElementById('subscriptionOverlay');
+        if (!ov) return;
+        ov.style.display = 'flex';
+    }
+
+    function hideSubscriptionOverlay() {
+        const ov = document.getElementById('subscriptionOverlay');
+        if (!ov) return;
+        ov.style.display = 'none';
+    }
+
+    function dismissOverlay() { hideSubscriptionOverlay(); }
+
+    function subscribeNow() { window.location.href = '/subscribe'; }
+
+    function searchAndPlay() {
+        let name = document.getElementById("searchInput").value;
+        playChannel(name);
+    }
+
+    // Live search suggestions under search box
+    const searchInput = document.getElementById('searchInput');
+    const suggestionsBox = document.getElementById('searchSuggestions');
+
+    if (searchInput) {
+        searchInput.addEventListener('input', () => {
+            updateSearchSuggestions(searchInput.value || '');
+        });
+
+        // Enter to play
+        searchInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                clearSearchSuggestions();
+                searchAndPlay();
+            }
+        });
+    }
+
+    function updateSearchSuggestions(q) {
+        const box = suggestionsBox;
+        if (!box) return;
+        const term = (q || '').trim().toLowerCase();
+        if (!term) { box.style.display = 'none'; box.innerHTML = ''; return; }
+
+        // find up to 8 matches by name
+        const matches = allChannels.filter(c => (c.name||'').toLowerCase().includes(term)).slice(0,8);
+        if (matches.length === 0) { box.style.display = 'none'; box.innerHTML = ''; return; }
+
+        box.innerHTML = '';
+        matches.forEach(m => {
+            const row = document.createElement('div');
+            row.className = 'suggestion-item';
+            row.title = m.name;
+
+            if (m.logo) {
+                const img = document.createElement('img'); img.src = m.logo; img.alt = m.name; img.onerror = function(){ this.style.display='none'; };
+                row.appendChild(img);
+            }
+
+            const t = document.createElement('div'); t.textContent = m.name; t.style.flex='1';
+            row.appendChild(t);
+
+            row.onclick = () => { clearSearchSuggestions(); playChannel(m.name); };
+            box.appendChild(row);
+        });
+        box.style.display = 'block';
+    }
+
+    function clearSearchSuggestions() { const box = suggestionsBox; if (!box) return; box.innerHTML = ''; box.style.display = 'none'; }
+
+    function nextPage() {
+        if ((currentPage + 1) * pageSize < channels.length) {
+            currentPage++;
+            renderChannels();
+        }
+    }
+
+    function prevPage() {
+        if (currentPage > 0) {
+            currentPage--;
+            renderChannels();
+        }
+    }
+
+    
+
+    // Menu popup
+    function toggleMenu(show) {
+        let el = document.getElementById('menuPopup');
+        if (typeof show === 'boolean') el.style.display = show ? 'block' : 'none';
+        else el.style.display = (el.style.display === 'block') ? 'none' : 'block';
+    }
+
+    // Category modal
+    function openCategoryModal() {
+        document.getElementById('categoryModal').style.display = 'flex';
+        loadCategories();
+    }
+
+    function closeCategoryModal() { document.getElementById('categoryModal').style.display = 'none'; }
+
+    function loadCategories() {
+        // Build a hierarchical category tree from `category` or `group` fields.
+        // Categories may be like "News;public". We show top-level (e.g. "News")
+        // and allow expanding to subcategories (e.g. "public", "science").
+        const tree = {};
+        allChannels.forEach(c => {
+            const raw = (c.category || c.group || '').trim();
+            if (!raw) return;
+            const parts = raw.split(';').map(s => s.trim()).filter(Boolean);
+            if (parts.length === 0) return;
+            const top = parts[0];
+            if (!tree[top]) tree[top] = new Set();
+            if (parts.length > 1) tree[top].add(parts[1]);
+        });
+
+        const tops = Object.keys(tree).sort();
+        const container = document.getElementById('categoryList');
+        container.innerHTML = '';
+        if (tops.length === 0) {
+            container.innerHTML = '<div style="opacity:.7">No categories found</div>';
+            return;
+        }
+
+        tops.forEach(top => {
+            const row = document.createElement('div');
+            row.style.display = 'flex'; row.style.flexDirection = 'column'; row.style.padding = '6px';
+
+            const header = document.createElement('div');
+            header.style.display = 'flex'; header.style.justifyContent = 'space-between'; header.style.alignItems = 'center';
+
+            const name = document.createElement('div');
+            name.textContent = top; name.style.fontWeight = '600'; name.style.flex = '1';
+
+            const actions = document.createElement('div');
+            actions.style.display = 'flex'; actions.style.gap = '6px';
+
+            const btnAll = document.createElement('button');
+            btnAll.className = 'ctrl-btn'; btnAll.textContent = 'Select All';
+            btnAll.onclick = () => { applyCategory(top); };
+
+            const toggle = document.createElement('button');
+            toggle.className = 'ctrl-btn'; toggle.textContent = '▸'; toggle.style.width = '36px';
+
+            actions.appendChild(btnAll); actions.appendChild(toggle);
+            header.appendChild(name); header.appendChild(actions);
+            row.appendChild(header);
+
+            const subs = Array.from(tree[top]).sort();
+
+            // When user clicks the toggle, show a focused subcategory view with a Back button
+            toggle.onclick = () => { showTopSub(top); };
+
+            // Build inline sub-list as a fallback (kept hidden when using focused view)
+            const subList = document.createElement('div');
+            subList.style.display = 'none'; subList.style.paddingLeft = '10px'; subList.style.marginTop = '6px';
+
+            subs.forEach(sub => {
+                const r = document.createElement('div');
+                r.style.display = 'flex'; r.style.justifyContent = 'space-between'; r.style.alignItems = 'center'; r.style.padding = '4px 0';
+                const n = document.createElement('div'); n.textContent = sub; n.style.flex = '1';
+                const b = document.createElement('button'); b.className = 'ctrl-btn'; b.textContent = 'Select';
+                b.onclick = () => { applyCategory(top, sub); };
+                r.appendChild(n); r.appendChild(b); subList.appendChild(r);
+            });
+
+            row.appendChild(subList);
+            container.appendChild(row);
+        });
+    }
+
+    // Show a focused subcategory view for a top-level category with a Back button
+    function showTopSub(top) {
+        const container = document.getElementById('categoryList');
+        container.innerHTML = '';
+
+        const header = document.createElement('div');
+        header.style.display = 'flex'; header.style.justifyContent = 'space-between'; header.style.alignItems = 'center'; header.style.padding = '6px';
+
+        const back = document.createElement('button'); back.className = 'ctrl-btn'; back.textContent = 'Back'; back.onclick = loadCategories;
+        const title = document.createElement('div'); title.textContent = top; title.style.fontWeight = '700'; title.style.flex = '1'; title.style.textAlign = 'center';
+        const allBtn = document.createElement('button'); allBtn.className = 'ctrl-btn'; allBtn.textContent = 'Select All'; allBtn.onclick = () => { applyCategory(top); };
+
+        header.appendChild(back); header.appendChild(title); header.appendChild(allBtn);
+        container.appendChild(header);
+
+        // Build subcategory list from allChannels
+        const set = new Set();
+        allChannels.forEach(c => {
+            const raw = (c.category || c.group || '').trim();
+            if (!raw) return;
+            const parts = raw.split(';').map(s => s.trim()).filter(Boolean);
+            if (parts.length > 1 && parts[0] === top) set.add(parts[1]);
+        });
+        const subs = Array.from(set).sort();
+        if (subs.length === 0) {
+            const none = document.createElement('div'); none.style.opacity = '.7'; none.textContent = 'No subcategories'; container.appendChild(none); return;
+        }
+
+        subs.forEach(sub => {
+            const r = document.createElement('div');
+            r.style.display = 'flex'; r.style.justifyContent = 'space-between'; r.style.alignItems = 'center'; r.style.padding = '6px 0';
+            const n = document.createElement('div'); n.textContent = sub; n.style.flex = '1';
+            const b = document.createElement('button'); b.className = 'ctrl-btn'; b.textContent = 'Select'; b.onclick = () => { applyCategory(top, sub); };
+            r.appendChild(n); r.appendChild(b); container.appendChild(r);
+        });
+    }
+
+    function applyCategory(top, sub) {
+        if (typeof sub === 'undefined') {
+            // filter by top-level category
+            channels = allChannels.filter(c => {
+                const raw = (c.category || c.group || '').trim();
+                if (!raw) return false;
+                const parts = raw.split(';').map(s => s.trim()).filter(Boolean);
+                return parts.length > 0 && parts[0] === top;
+            });
+        } else {
+            // filter by top + subcategory
+            channels = allChannels.filter(c => {
+                const raw = (c.category || c.group || '').trim();
+                if (!raw) return false;
+                const parts = raw.split(';').map(s => s.trim()).filter(Boolean);
+                return parts.length > 1 && parts[0] === top && parts[1] === sub;
+            });
+        }
+        // mark active category so Back button appears
+        activeCategory = { top: top, sub: (typeof sub === 'undefined' ? null : sub) };
+        document.getElementById('backBtn').style.display = 'inline-block';
+        currentPage = 0; renderChannels(); closeCategoryModal();
+    }
+
+    function clearCategory() {
+        channels = allChannels.slice(); currentPage = 0; renderChannels(); closeCategoryModal();
+        activeCategory = null;
+        document.getElementById('backBtn').style.display = 'none';
+    }
+
+    // When user clicks Back while filtered, re-open category selection
+    function goBackFromFilter() {
+        // if we have an active subcategory, open focused sub view for that top
+        document.getElementById('categoryModal').style.display = 'flex';
+        if (activeCategory && activeCategory.top) {
+            showTopSub(activeCategory.top);
+        } else {
+            loadCategories();
+        }
+    }
+</script>
+
+</body>
+</html>
