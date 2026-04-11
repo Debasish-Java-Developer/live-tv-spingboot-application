@@ -44,18 +44,7 @@ http://localhost:8080/player.html
 ---
 
 ## 🧭 How It Works (Architecture)
-
-![Image](https://images.openai.com/static-rsc-4/FG4kbS1wGVsTwqUcaf_5nmm6aKz72Ws7gT47x2ZJKM92VB9IrrSHYoZ9mi6At6HCOhi7szEtRfYMJefm78oQQlX1CQBSGjvUEJSCIE7KSz-UCnh6d6nxE8dGzmB4XG1_0Yng2Nrpy2K0H5cmmcIGpJsbbmhAlrEHrtWlNVPDwoze6FkGtE8smc4xmICfX9YW?purpose=fullsize)
-
-![Image](https://images.openai.com/static-rsc-4/MVSj8BqXeSyFuvC2FioedBKw1pHB4KUSkZhWuUzDks55dVsLwaOXIR90YYvyQ-lkhY0UxlywxsS32Mi2wqN-7BDegh2QANQUO_-frR_KTbErWRLBNhqqvcrolI3yR8IqXvaNLr6kgSRaXEWjXKplvlQsQdGmUkIwhzSeX9XFywM7EJELtEWGQu0iah-vJVjg?purpose=fullsize)
-
-![Image](https://images.openai.com/static-rsc-4/957Ougx2-XfVHR3LjLunsdErslbqH6BIiYa1FpyaHNBJHgZOtKGDHqKSs09vxNTSECIvmL8YoIpdKwQSwIXe8RLz3vsl6XXhhw5aW97fDVyESah4-WKbXRzAvCZUgX8xWNBam-DOOxxaJsD9sypNL_M4cOtYgJu3oklJFP_qtmhuwjLzKHNMupXjX75TCFpo?purpose=fullsize)
-
-![Image](https://images.openai.com/static-rsc-4/_co2aAhfQTKd6nPR0fp90UNACZx9HV2V711HrnUepTh-53kt4aP-eKMbJAOqihIHh3bqPjQ0yndwmjGcMArIbA5_DfWvI6Ci4_0kINXXXI9PVkcFgrt1QaLCQSFW0dqmwiqmiOub2jcIx5Inxijpe96q7brOcnFSRFruNAQYpGO6H8kzORw1KOpd6DOjBYby?purpose=fullsize)
-
-![Image](https://images.openai.com/static-rsc-4/WYAARhyO-ySZNHxExQnV3uP6NHWmi88yBZD1ywmYzMv2WbAQbYuJwmK0k9ObQbLXqe-_kabjrUr4xCzym2DSIrte8Ft5yW1fYcHjLffcKF14j_aGWbJZ1x1RdOC-_K8FUc9O0ICoHwRfXDoi9UGd3OWbgCib5ceYBHOAECNzbTkl-QMyF8LHVzNYuNk0nqxY?purpose=fullsize)
-
-![Image](https://images.openai.com/static-rsc-4/QSM7V71uLFIbgnDR2tynr4eW2NSES4yaKTpz-zbhAJb5N5DANPIypIHLktPOgPAPS5sxNnAzSX-XAPLLDHU2AuV6wnyxA_WqiGyoqPwdL2OFQ9rmJujClYB1rEe2j-707KXeH03QAill0dY0NHOmjVe5KMCE_ELtpRcACAM1OZhtbMUz99h_PIN-D1GUECML?purpose=fullsize)
+Will update the flow in next iteration.
 
 ### Flow
 
