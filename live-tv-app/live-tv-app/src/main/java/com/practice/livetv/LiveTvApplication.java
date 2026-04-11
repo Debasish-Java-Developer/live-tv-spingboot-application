@@ -17,22 +17,12 @@ import org.springframework.web.bind.annotation.RestController;
 @SpringBootApplication
 @RestController
 public class LiveTvApplication {
-
-    // Store all channels in memory
     static List<Map<String, String>> channelList = new ArrayList<>();
 
     public static void main(String[] args) throws Exception {
-
-        // Start Spring Boot application
         SpringApplication.run(LiveTvApplication.class, args);
-
-        // IPTV playlist URL
         String playlistUrl = "https://iptv-org.github.io/iptv/index.m3u";
-
-        // Open the IPTV playlist URL
         URL url = new URL(playlistUrl);
-
-        // Read playlist line by line
         BufferedReader reader = new BufferedReader(
                 new InputStreamReader(url.openStream())
         );
@@ -41,24 +31,15 @@ public class LiveTvApplication {
         String channelName = "";
         String channelLogo = "";
         String channelGroup = "";
-
-        // Parse M3U file
         while ((line = reader.readLine()) != null) {
-
-            // If metadata line
             if (line.startsWith("#EXTINF")) {
-
-                // Extract channel name
                 channelName = line.substring(line.lastIndexOf(",") + 1).trim();
-
-                // Extract channel logo
                 if (line.contains("tvg-logo")) {
                     channelLogo = line.split("tvg-logo=\"")[1].split("\"")[0];
                 } else {
                     channelLogo = "";
                 }
 
-                // Extract channel group
                 if (line.contains("group-title")) {
                     channelGroup = line.split("group-title=\"")[1].split("\"")[0];
                 } else {
@@ -66,25 +47,19 @@ public class LiveTvApplication {
                 }
 
             }
-            // If stream URL line
+
             else if (line.startsWith("http")) {
 
-                // Create channel map
                 Map<String, String> channel = new HashMap<>();
                 channel.put("name", channelName);
                 channel.put("logo", channelLogo);
                 channel.put("group", channelGroup);
                 channel.put("streamUrl", line.trim());
-
-                // Add channel to list
                 channelList.add(channel);
             }
         }
 
-        // Close reader
         reader.close();
-
-        // Log loaded channels count
         System.out.println("Total Channels Loaded: " + channelList.size());
     }
 
@@ -92,11 +67,8 @@ public class LiveTvApplication {
     
     @GetMapping("/channels")
     public List<Map<String, String>> getAllChannels() {
-
         List<Map<String, String>> response = new ArrayList<>();
-
         for (Map<String, String> channel : channelList) {
-
             Map<String, String> data = new HashMap<>();
             data.put("name", channel.get("name"));
             data.put("logo", channel.get("logo"));
@@ -107,8 +79,6 @@ public class LiveTvApplication {
 
         return response;
     }
-
-    // API 2 : Play selected channel
   
     @GetMapping("/channels/play")
     public Map<String, String> playChannel(@RequestParam String name) {
@@ -122,10 +92,18 @@ public class LiveTvApplication {
                 return response;
             }
         }
-
-        // Channel not found
         Map<String, String> error = new HashMap<>();
         error.put("error", "Channel not found");
         return error;
     }
 }
+
+/*
+ * 1. Load M3U playlist from URL and parse channel information (name, logo, group, stream URL).
+ * 2. Store channel information in a list.
+ * 3. Create API endpoint to return all channels (name, logo, group).
+ * 4. Create API endpoint to return stream URL for a given channel name.
+ * 5. Handle errors (e.g., channel not found).
+ */
+
+/*To run channels and for better viewing experience open the stream URL in a chrome media player after starting the main application run http://localhost:8080/player.html */
